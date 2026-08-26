@@ -1,35 +1,70 @@
 """
 scraper.py
-Lista todos los PDFs de la sección "Automotriz" en la página de PetroPerú.
+Lista los PDFs de la sección "Automotriz" en la página de PetroPerú.
 Devuelve una lista de dicts: {"fecha": "2026-08-25", "url": "...", "lista_id": "COMB-60-2026"}
 
 Requiere: pip install requests beautifulsoup4
 """
 
+import os
 import re
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
 
 URL_BASE = "https://www.petroperu.com.pe/productos/lista-de-precios-en-nuestras-plantas/"
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 
+# Convención de guardado: precios/<año>/<mes_abrev><día>.pdf
+# (ej. 25.08.2026 -> precios/2026/agos25.pdf)
+MESES_ABREV = {
+    1: "ener", 2: "febr", 3: "marz", 4: "abri", 5: "mayo", 6: "juni",
+    7: "juli", 8: "agos", 9: "sept", 10: "octu", 11: "novi", 12: "dici",
+}
 
-def obtener_lista_pdfs():
+
+def ruta_destino(fecha_iso, carpeta_base="precios"):
+    """Ruta local 'precios/<año>/<mesabrev><día>.pdf' para una fecha ISO (YYYY-MM-DD)."""
+    anio, mes, dia = fecha_iso.split("-")
+    nombre_archivo = f"{MESES_ABREV[int(mes)]}{dia}.pdf"
+    return os.path.join(carpeta_base, anio, nombre_archivo)
+
+
+def descargar_pdf(pdf_info, carpeta_base="precios"):
     """
-    Descarga la página HTML y extrae todos los links de PDF dentro
-    de la sección Automotriz, junto a su fecha de vigencia.
+    Descarga el PDF de precios de pdf_info (dict con 'url' y 'fecha' ISO)
+    y lo guarda en precios/<año>/<mesabrev><día>.pdf.
+    Devuelve la ruta local donde quedó guardado.
+    """
+    if not pdf_info.get("fecha"):
+        raise ValueError("pdf_info necesita una 'fecha' ISO para poder nombrar el archivo")
 
-    NOTA IMPORTANTE (calibrar en Claude Code):
-    No conozco todavía el HTML exacto de esa sección (solo vi el
-    contenido ya renderizado/interpretado por mi herramienta de fetch).
-    Tienes que:
-      1. Correr este script con `resp.text` impreso o guardado en un .html
-      2. Inspeccionar en el navegador (clic derecho > Inspeccionar) el
-         bloque "Automotriz" para confirmar el selector CSS real
-         (probablemente un <div> o <table> con una clase específica,
-         y cada fila con un <a href="...pdf"> y un texto de fecha cerca).
-      3. Ajustar el selector en la línea marcada como TODO abajo.
+    destino = ruta_destino(pdf_info["fecha"], carpeta_base)
+    os.makedirs(os.path.dirname(destino), exist_ok=True)
+
+    resp = requests.get(pdf_info["url"], headers=HEADERS, timeout=30)
+    resp.raise_for_status()
+
+    with open(destino, "wb") as f:
+        f.write(resp.content)
+
+    return destino
+
+
+def obtener_lista_pdfs(categoria="Automotriz"):
+    """
+    Descarga la página HTML y extrae los PDFs de la categoría dada.
+
+    La web publica esta lista de precios como un calendario segmentado
+    por tipo de combustible: Automotriz, Marino, Aviación, Asfaltos y
+    Productos químicos (5 categorías, cada PDF marcado con su
+    data-eng-text real en el HTML). Solo nos interesa "Automotriz"
+    (combustibles de plantas de venta al público) — las otras traen
+    tablas totalmente distintas y romperían el parser si se procesan
+    igual.
+
+    Cada entrada del calendario ya trae su fecha en
+    data-date="YYYY-MM-DD", así que no hace falta parsear el texto
+    visible (que viene en español, ej. "25-Ago-2026").
     """
     resp = requests.get(URL_BASE, headers=HEADERS, timeout=30)
     resp.raise_for_status()
@@ -37,38 +72,27 @@ def obtener_lista_pdfs():
 
     resultados = []
 
-    # TODO: ajustar este selector una vez inspecciones el HTML real.
-    # Punto de partida razonable: buscar todos los <a> que terminen en .pdf
-    links = soup.find_all("a", href=re.compile(r"\.pdf$", re.IGNORECASE))
-
-    for link in links:
-        href = link.get("href")
-        if not href:
+    for li in soup.select("ul.segmented-calendar li[data-date]"):
+        titulo = li.select_one(".title")
+        if not titulo or titulo.get_text(strip=True) != categoria:
             continue
+
+        link = li.find("a", href=re.compile(r"\.pdf$", re.IGNORECASE))
+        if not link:
+            continue
+
+        href = link.get("href")
         if href.startswith("/"):
             href = "https://www.petroperu.com.pe" + href
 
-        # El texto visible del link o su contenedor suele traer la fecha
-        # y a veces el número de lista (ej. "COMB-60-2026 - 25.08.2026")
         texto = link.get_text(strip=True)
-
-        fecha_match = re.search(r"(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})", texto)
-        fecha_iso = None
-        if fecha_match:
-            d, m, y = fecha_match.groups()
-            try:
-                fecha_iso = datetime(int(y), int(m), int(d)).date().isoformat()
-            except ValueError:
-                pass
-
         lista_match = re.search(r"COMB-(\d+)-(\d{4})", texto)
-        lista_id = lista_match.group(0) if lista_match else None
 
         resultados.append({
-            "fecha": fecha_iso,
+            "fecha": li.get("data-date"),
             "texto_original": texto,
             "url": href,
-            "lista_id": lista_id,
+            "lista_id": lista_match.group(0) if lista_match else None,
         })
 
     # Deduplicar por URL, ordenar por fecha descendente

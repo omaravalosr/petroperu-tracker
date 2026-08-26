@@ -1,0 +1,9 @@
+.DS_Store
+
+# PDFs descargados por scraper.py/update.py — se regeneran con `python update.py`
+/raw/
+/precios/
+precios.pdf
+
+# Snapshots intermedios del CSV tomados durante debugging
+/data/backups/
