@@ -15,19 +15,23 @@ PetroPerú, nunca mezclado en el mismo dataset (granularidades distintas:
 PetroPerú es planta/lista/fecha, proveedores es ruta/proveedor/vigencia).
 
 METODOLOGÍA DE CÁLCULO DEL CSV (trazabilidad — no se recalcula acá, se
-documenta para referencia; el detalle completo vive en
-Calculo_SGal_Actualizado_Nuevos_KM_v2.xlsx):
-  - Origen: Hub Lurín. Rendimiento: 9.6 km/galón. Camión: 26 pallets.
+documenta para referencia; versión DEFINITIVA, ver
+proveedores_sgal_rendimientos_reales.csv):
   - KM_FINAL = KM_IDA × 2 (ida y vuelta) × 1.15 (factor operativo).
-  - Si la ruta no se pudo reconstruir completa en el nuevo levantamiento:
-    KM_FINAL = KM_TOTAL_ANTERIOR × 1.15 (sin duplicar el factor de vuelta,
-    porque el KM anterior ya era total ida+vuelta).
-  - GALONES_ESTIMADOS = KM_FINAL / 9.6
+  - Si la ruta no se pudo reconstruir completa en el levantamiento de
+    kilometraje: KM_FINAL = KM_TOTAL_ANTERIOR × 1.15 (sin duplicar el
+    factor de vuelta, porque el KM anterior ya era total ida+vuelta).
+  - GALONES_CONSUMIDOS = KM_FINAL / RENDIMIENTO_DEL_PROVEEDOR — cada
+    proveedor tiene su propio rendimiento real de combustible (ya NO se
+    usa un rendimiento genérico único de 9.6 km/gal para los tres):
+      HECARO:  7.87 km/gal
+      LMG:     7.83 km/gal
+      QOLPARO: 8.25 km/gal
   - Componente combustible = Tarifa × % combustible del proveedor:
       HECARO: variable 50%-70% según ruta (metodología logística externa).
       LMG: 52% fijo.
       QOLPARO: 50% fijo.
-  - S/GALÓN_IMPLÍCITO = Componente_combustible / GALONES_ESTIMADOS
+  - S/GALÓN_IMPLÍCITO = Componente_combustible / GALONES_CONSUMIDOS
 
 Reglas de vigencia (fijas para 2026):
   - periodo_tarifa "2025"   -> vigente enero, febrero y marzo de 2026
