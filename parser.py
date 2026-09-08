@@ -46,19 +46,26 @@ def es_numero(texto):
 
 
 # ── Detección dinámica de columnas ──────────────────────────────────
-# En vez de rangos de x0 fijos (que se rompen si un PDF de otra fecha
-# viene con la tabla corrida unos puntos a la derecha o izquierda),
-# ubicamos por cada PDF las palabras ancla del propio encabezado y
-# calculamos los límites de columna a partir de sus posiciones reales.
+# En vez de posiciones fijas (que se rompen si un PDF de otra fecha viene
+# con la tabla corrida horizontal O verticalmente), ubicamos por cada PDF
+# las palabras ancla del propio encabezado y calculamos los límites de
+# columna a partir de sus posiciones reales:
 #
-# Cada entrada es (nombre_columna, texto_ancla, ocurrencia). "ocurrencia"
-# desambigua encabezados con la misma palabra repetida (ej. "GASOLINA"
-# aparece 3 veces: Premium/Regular/84, en ese orden de izquierda a
-# derecha; "DIESEL" aparece 2 veces por página: la primera es la
-# variante "UV", la segunda no).
+#   - Horizontal (x0): punto medio entre anclas consecutivas.
+#   - Vertical (top): la banda de búsqueda del encabezado se calcula
+#     relativa a la posición real de la palabra "PLANTAS" en ESE pdf (que
+#     encabeza la columna de nombres de planta), no a un rango de `top`
+#     fijo — un PDF real (COMB-62-2026, 08.09.2026) trajo el encabezado de
+#     la página 2 unos 28pt más arriba que lo habitual y rompía la banda
+#     fija anterior.
+#
+# Cada entrada de "columnas" es (nombre_columna, texto_ancla, ocurrencia).
+# "ocurrencia" desambigua encabezados con la misma palabra repetida (ej.
+# "GASOLINA" aparece 3 veces: Premium/Regular/84, en ese orden de
+# izquierda a derecha; "DIESEL" aparece 2 veces por página: la primera es
+# la variante "UV", la segunda no).
 ANCLAS_POR_PAGINA = {
     1: {  # Lista principal + Amazonía
-        "top_min": 120, "top_max": 150,
         "columnas": [
             ("GLP_SOLES_KG", "SOLES/KG", 1),
             ("GASOLINA_PREMIUM", "GASOLINA", 1),
@@ -71,7 +78,6 @@ ANCLAS_POR_PAGINA = {
         ],
     },
     2: {  # Addendum N°1 — USO INTERNO
-        "top_min": 170, "top_max": 190,
         "columnas": [
             ("DIESEL_B5_UV_S50", "DIESEL", 1),
             ("DIESEL_B5_S50", "DIESEL", 2),
@@ -80,7 +86,6 @@ ANCLAS_POR_PAGINA = {
         ],
     },
     3: {  # Addendum N°2 — Combustibles eléctricos (G.E.)
-        "top_min": 155, "top_max": 172,
         "columnas": [
             ("DIESEL_B5_GE", "DIESEL", 1),
             ("DIESEL_B5_S50_GE", "DIESEL", 2),
@@ -91,24 +96,38 @@ ANCLAS_POR_PAGINA = {
 
 MARGEN_BORDE = 40  # pt de margen para la primera/última columna de la página
 
+# Ventana de búsqueda vertical del encabezado, relativa al "PLANTAS" más
+# alto de la página (el que encabeza el bloque principal, no un bloque
+# secundario repetido más abajo). Calibrado contra los 3 pesos observados:
+# page1 (offsets 0 a -8.4), page2 (-11.4 a -19.2), page3 (-7.5 a -9.1).
+MARGEN_HEADER_ARRIBA = 25
+MARGEN_HEADER_ABAJO = 2
+
 
 def detectar_columnas(page, num_pagina):
     """
     Ubica dinámicamente los límites (x_min, x_max) de cada columna para
     ESTA página de ESTE pdf, buscando las palabras ancla del encabezado
-    en vez de asumir posiciones x0 fijas.
+    en vez de asumir posiciones fijas (ni de x0 ni de top).
 
     Devuelve {nombre_columna: (x_min, x_max)}, o {} si no se pudo ubicar
-    ninguna ancla (ej. página sin mapeo definido, o encabezado distinto
-    al esperado).
+    ninguna ancla (ej. página sin mapeo definido, sin "PLANTAS", o
+    encabezado distinto al esperado).
     """
     config = ANCLAS_POR_PAGINA.get(num_pagina)
     if not config:
         return {}
 
+    words = page.extract_words()
+
+    tops_plantas = [w["top"] for w in words if w["text"].strip().upper() == "PLANTAS"]
+    if not tops_plantas:
+        return {}
+    top_plantas = min(tops_plantas)  # el bloque principal, no un repetido más abajo
+
     words_header = [
-        w for w in page.extract_words()
-        if config["top_min"] <= w["top"] <= config["top_max"]
+        w for w in words
+        if top_plantas - MARGEN_HEADER_ARRIBA <= w["top"] <= top_plantas + MARGEN_HEADER_ABAJO
     ]
 
     anclas = []

@@ -189,6 +189,22 @@ Estos quedaron resueltos en el código, documentados acá como referencia:
 6. **PDFs de otras categorías mezclados**: el scraper original traía todos
    los `<a href=*.pdf>` de la página, incluyendo Asfaltos/Marino/Aviación →
    filtrado por categoría real del HTML.
+7. **Banda vertical (`top`) del encabezado también se corre**: no solo el
+   `x0` cambia entre PDFs — `COMB-62-2026` (08.09.2026) trajo el encabezado
+   de la página 2 unos 28pt más arriba que lo habitual, rompiendo la banda
+   `top_min/top_max` fija que usaba `detectar_columnas`. Se reemplazó por
+   una banda calculada en runtime, relativa a la posición real de la
+   palabra "PLANTAS" en esa página de ese PDF (igual filosofía que el
+   punto 2, pero para el eje vertical).
+8. **Backfill histórico accidental vía CI**: el workflow de actualización
+   automática corría `update.py --year all`, que no significa "trae lo
+   nuevo" sino "sin filtro de año" — como `data/precios.csv` nunca había
+   tenido listas anteriores a 2026, la primera corrida del workflow bajó
+   TODO el histórico de PetroPerú desde 2021 (6855 filas, 399 listas) de
+   una sola vez. Se cambió a `--year "$(date -u +%Y)"` (año actual
+   calculado en runtime) en `.github/workflows/update-precios.yml`, que
+   sigue sin necesitar mantenimiento al cruzar a 2027 pero nunca vuelve a
+   traer años anteriores de golpe.
 
 ---
 

@@ -25,10 +25,13 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Correr update.py
-        # --year all: procesa cualquier PDF nuevo sin importar el año, así el
-        # workflow no necesita mantenimiento al cruzar de 2026 a 2027. Los
-        # lista_id ya presentes en data/precios.csv se saltan (idempotente).
-        run: python update.py --year all
+        # Año actual calculado en runtime (no "--year all"): el dataset del
+        # proyecto solo cubre el año en curso. "--year all" trae TODO el
+        # histórico de PetroPerú (desde 2021+) la primera vez que corre,
+        # porque esos lista_id nunca estuvieron en el CSV — no es "traer lo
+        # nuevo", es un backfill completo. Con el año dinámico, el workflow
+        # sigue funcionando sin mantenimiento al cruzar a 2027 sin ese riesgo.
+        run: python update.py --year "$(date -u +%Y)" --month all
 
       - name: Commit y push si data/precios.csv cambió
         run: |
