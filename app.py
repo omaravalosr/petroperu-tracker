@@ -16,6 +16,7 @@ import streamlit as st
 
 from proveedores import (
     COLORES_PROVEEDOR,
+    ETIQUETA_PERIODO,
     PROVEEDORES_PATH,
     cargar_proveedores_sgal,
     promedio_proveedor_en_fecha,
@@ -172,8 +173,12 @@ else:
                     marker=dict(size=7),
                     text=d["promedio_sol_galon"].map(lambda v: f"{v:.1f}"),
                     textposition="top center",
+                    customdata=d[["n_rutas", "periodo_label"]].to_numpy(),
                     hovertemplate=(
-                        "%{x|%b %Y}<br>" + proveedor + ": S/%{y:.2f}/gal implícito<extra></extra>"
+                        proveedor + "<br>%{x|%b-%Y}<br>"
+                        "S/gal: %{y:.2f}<br>"
+                        "Rutas: %{customdata[0]}<br>"
+                        "%{customdata[1]}<extra></extra>"
                     ),
                 ))
 
@@ -257,6 +262,8 @@ else:
             for _, r in prom_actual.iterrows():
                 proveedor = r["proveedor"]
                 valor = float(r["promedio_sol_galon"])
+                n_rutas = int(r["n_rutas"])
+                periodo_label = ETIQUETA_PERIODO.get(r["periodo_tarifa"], r["periodo_tarifa"])
                 fig_comparativo.add_trace(go.Scatter(
                     x=x_vals,
                     y=[valor] * len(x_vals),
@@ -267,7 +274,10 @@ else:
                         width=2,
                         dash="dash",
                     ),
-                    hovertemplate=f"{proveedor}<br>S/{valor:.2f}/gal implícito<extra></extra>",
+                    hovertemplate=(
+                        f"{proveedor}<br>{periodo_label}<br>"
+                        f"S/gal: {valor:.2f}<br>Rutas: {n_rutas}<extra></extra>"
+                    ),
                 ))
 
         st.plotly_chart(fig_comparativo, use_container_width=True)

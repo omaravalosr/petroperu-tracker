@@ -16,19 +16,22 @@ def proveedores_df():
 
 
 def test_vigencia_marzo_vs_abril(proveedores_df):
+    # Valores recalculados a partir de proveedores_sgal_actualizado_v2.csv
+    # (KM actualizados desde Hub Lurín, 9.6 km/gal, ×2 ida/vuelta, ×1.15
+    # operativo) — ver Calculo_SGal_Actualizado_Nuevos_KM_v2.xlsx.
     mar = promedio_proveedor_en_fecha(proveedores_df, "2026-03-31")
     abr = promedio_proveedor_en_fecha(proveedores_df, "2026-04-30")
 
     mar = mar.set_index("proveedor")["promedio_sol_galon"]
     abr = abr.set_index("proveedor")["promedio_sol_galon"]
 
-    assert round(mar["HECARO"], 2) == 25.18
-    assert round(mar["LMG"], 2) == 22.02
-    assert round(mar["QOLPARO"], 2) == 21.12
+    assert round(mar["HECARO"], 2) == 20.46
+    assert round(mar["LMG"], 2) == 17.96
+    assert round(mar["QOLPARO"], 2) == 17.22
 
-    assert round(abr["HECARO"], 2) == 31.24
-    assert round(abr["LMG"], 2) == 27.54
-    assert round(abr["QOLPARO"], 2) == 25.94
+    assert round(abr["HECARO"], 2) == 25.22
+    assert round(abr["LMG"], 2) == 23.29
+    assert round(abr["QOLPARO"], 2) == 21.30
 
 
 def test_tarifa_2025_aplica_enero_a_marzo(proveedores_df):
@@ -56,3 +59,18 @@ def test_nulos_no_se_convierten_en_cero(proveedores_df):
     # Fecha sin ninguna vigencia (antes de 2026) -> sin filas, no ceros.
     vacio = promedio_proveedor_en_fecha(proveedores_df, "2025-12-31")
     assert vacio.empty
+
+
+def test_sin_duplicados_periodo_proveedor_ruta(proveedores_df):
+    dups = proveedores_df.duplicated(subset=["periodo_tarifa", "proveedor", "ruta"])
+    assert not dups.any(), proveedores_df[dups]
+
+
+def test_n_rutas_disponible_para_tooltip(proveedores_df):
+    # LMG tiene menos rutas con tarifa "ACTUAL" que HECARO/QOLPARO en el CSV
+    # actualizado (13 vs 24/23) — el promedio debe reflejar eso, no rellenar
+    # las rutas faltantes.
+    prom = promedio_proveedor_en_fecha(proveedores_df, "2026-08-25").set_index("proveedor")
+    assert prom.loc["HECARO", "n_rutas"] == 24
+    assert prom.loc["LMG", "n_rutas"] == 13
+    assert prom.loc["QOLPARO", "n_rutas"] == 23

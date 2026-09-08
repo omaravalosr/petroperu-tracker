@@ -1,5 +1,14 @@
 # PATCH — Benchmarks de proveedores en Oil Tracker
 
+> **⚠️ Histórico — valores superados.** Este documento describe el parche
+> original (primera versión de `data/proveedores_sgal.csv`). Los valores de
+> S/gal y los smoke tests de acá quedaron reemplazados por
+> `proveedores_sgal_actualizado_v2.csv` (nuevo kilometraje desde Hub Lurín).
+> Ver [README.md](README.md), sección 7, para la metodología y los valores
+> vigentes. Se conserva este archivo solo como registro de diseño original
+> (arquitectura, reglas de filtros, criterios de aceptación siguen
+> aplicando igual).
+
 ## Objetivo
 
 Extender el dashboard Streamlit del proyecto **petroperu-tracker** para comparar el precio real de Diesel B5 S-50 de PetroPerú contra el costo implícito de combustible de los tres proveedores de transporte: **HECARO, LMG y QOLPARO**.

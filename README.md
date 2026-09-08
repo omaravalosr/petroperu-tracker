@@ -224,6 +224,31 @@ combustible de tres proveedores de transporte: **HECARO, LMG y QOLPARO**.
 | `vigencia_desde` | date ISO | Inicio de vigencia |
 | `vigencia_hasta` | date ISO, nullable | Fin de vigencia; vacío = sigue vigente |
 
+### Origen del benchmark y fórmula (trazabilidad)
+
+`sol_galon` viene **ya calculado** en el CSV — el dashboard nunca recalcula
+distancias, rendimiento ni tarifas, solo carga y promedia. El cálculo en sí
+(versión vigente: `proveedores_sgal_actualizado_v2.csv`, validado contra
+`Calculo_SGal_Actualizado_Nuevos_KM_v2.xlsx`) sigue esta metodología:
+
+- **Origen**: Hub Lurín. **Rendimiento**: 9.6 km/galón. **Camión estándar**: 26 pallets.
+- `KM_FINAL = KM_IDA × 2 (ida y vuelta) × 1.15 (factor operativo)` — para
+  rutas reconstruidas completas en el levantamiento de kilometraje.
+- **Fallback** para rutas que no se pudieron reconstruir completas:
+  `KM_FINAL = KM_TOTAL_ANTERIOR × 1.15` (el KM anterior ya era ida+vuelta,
+  por eso acá no se multiplica por 2 de nuevo).
+- `GALONES_ESTIMADOS = KM_FINAL / 9.6`
+- Componente de combustible = `Tarifa × % combustible`:
+  - **HECARO**: variable, 50%-70% según la ruta (metodología logística externa).
+  - **LMG**: 52% fijo.
+  - **QOLPARO**: 50% fijo.
+- `S/GALÓN_IMPLÍCITO = Componente_combustible / GALONES_ESTIMADOS`
+
+> **S/gal de proveedor es un valor implícito**, no el precio real que el
+> proveedor paga por diésel — es la tarifa de transporte "traducida" a un
+> costo de combustible equivalente, para poder compararla contra el precio
+> oficial de PetroPerú en las mismas unidades (S/ por galón).
+
 ### Reglas de vigencia (fijas para 2026)
 
 - Tarifas `2025` → vigentes en **enero, febrero y marzo de 2026**.
@@ -260,6 +285,9 @@ y solo se combinan visualmente (líneas sobre las mismas gráficas).
 - Ambas gráficas muestran una nota metodológica (caption o expander)
   aclarando que los proveedores son un benchmark implícito, no un precio de
   combustible.
+- Los tooltips de las líneas de proveedor muestran, calculado dinámicamente
+  desde el CSV (nada escrito a mano): proveedor, mes/período, S/gal
+  promedio y número de rutas consideradas en ese promedio.
 
 ### Regla de filtros
 
@@ -271,15 +299,28 @@ y solo se combinan visualmente (líneas sobre las mismas gráficas).
 ### Smoke test / tests automatizados
 
 `tests/test_proveedores.py` (correr con `pytest tests/test_proveedores.py`)
-valida:
-1. El promedio Ene-Mar 2026 es HECARO 25.18, LMG 22.02, QOLPARO 21.12.
-2. El promedio Abr-en-adelante es HECARO 31.24, LMG 27.54, QOLPARO 25.94.
+valida, contra el CSV vigente (`proveedores_sgal_actualizado_v2.csv`, KM
+actualizados desde Hub Lurín):
+1. El promedio Ene-Mar 2026 es HECARO 20.46, LMG 17.96, QOLPARO 17.22.
+2. El promedio Abr-en-adelante es HECARO 25.22, LMG 23.29, QOLPARO 21.30.
 3. Enero, febrero y marzo dan exactamente el mismo promedio (misma tarifa vigente).
 4. Abril y septiembre dan exactamente el mismo promedio (ambos usan `ACTUAL`).
 5. Ninguna fila tiene `sol_galon == 0` (una ruta sin tarifa queda ausente, no en cero — un cero sesgaría el promedio nacional).
+6. No hay filas duplicadas por `(periodo_tarifa, proveedor, ruta)`.
+7. El número de rutas consideradas por proveedor/período (`n_rutas`, el
+   mismo dato que se muestra en los tooltips) es el esperado — ej. LMG solo
+   tiene tarifa `ACTUAL` en 13 rutas, contra 24 (HECARO) y 23 (QOLPARO).
 
 Si el CSV no existe, el dashboard sigue funcionando con un `st.warning` y
 sin los benchmarks — no rompe el flujo de PetroPerú.
+
+**Nota de validación (2026-09, actualización a `_v2`):** al recalcular
+`S/gal = Componente_combustible / Galones` con las columnas intermedias del
+propio `Calculo_SGal_Actualizado_Nuevos_KM_v2.xlsx`, el resultado coincide
+exacto con `proveedores_sgal_actualizado_v2.csv` en las 141 filas. La
+columna final "S/gal" *mostrada dentro del propio xlsx* tiene un desfase de
++1.00 respecto a sus propias columnas de Tarifa/Galones (un bug de fórmula
+del Excel) — el CSV usado por el dashboard es el valor correcto.
 
 ---
 
