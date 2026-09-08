@@ -7,3 +7,7 @@ precios.pdf
 
 # Snapshots intermedios del CSV tomados durante debugging
 /data/backups/
+
+# Copia suelta de entrada del patch de proveedores — la fuente real vive en
+# data/proveedores_sgal.csv
+/proveedores_sgal.csv

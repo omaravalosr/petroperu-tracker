@@ -4,3 +4,4 @@ pdfplumber
 pandas
 streamlit
 plotly
+pytest

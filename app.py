@@ -11,7 +11,16 @@ apuntando a este archivo como entrypoint.
 
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
+
+from proveedores import (
+    COLORES_PROVEEDOR,
+    PROVEEDORES_PATH,
+    cargar_proveedores_sgal,
+    promedio_proveedor_en_fecha,
+    serie_mensual_proveedores,
+)
 
 st.set_page_config(page_title="Tracker Diesel B5 S-50 — PetroPerú", layout="wide")
 
@@ -40,6 +49,16 @@ except FileNotFoundError:
 if df.empty:
     st.warning("El CSV existe pero está vacío.")
     st.stop()
+
+# ── Benchmarks de proveedores (fuente independiente de PetroPerú) ─
+# No se concatena con `df`: PetroPerú es planta/lista/fecha, proveedores es
+# ruta/proveedor/vigencia — granularidades distintas. Si el CSV no existe,
+# el dashboard de PetroPerú sigue funcionando igual, solo sin benchmarks.
+if PROVEEDORES_PATH.exists():
+    proveedores_df = cargar_proveedores_sgal()
+else:
+    proveedores_df = pd.DataFrame()
+    st.warning("No se encontró data/proveedores_sgal.csv; se muestran solo precios PetroPerú.")
 
 # ── Sidebar: filtros ────────────────────────────────────────────
 st.sidebar.header("Filtros")
@@ -111,7 +130,8 @@ else:
         st.plotly_chart(fig_linea, use_container_width=True)
 
     with col_barras:
-        st.markdown("**Promedio mensual a nivel país**")
+        titulo_mensual = "Precio nacional PetroPerú vs. S/gal implícito de proveedores"
+        st.markdown(f"**{titulo_mensual}**")
         # Promedio de TODAS las plantas seleccionadas por mes (no una barra
         # por planta) — evolución del precio promedio nacional, mes a mes.
         df_mensual = df_filtrado.copy()
@@ -124,9 +144,48 @@ else:
             labels={"mes": "Mes", "valor": "Precio promedio nacional (S/ Galón)"},
         )
         fig_barras.update_traces(textposition="inside")
+
+        # Benchmarks de proveedor superpuestos como líneas escalón (no
+        # interpolan entre períodos de tarifa — el salto marzo/abril debe
+        # verse como salto, no como pendiente). Solo se construyen para los
+        # meses que ya están visibles en las barras PetroPerú (respeta el
+        # filtro de fechas); el filtro de PLANTAS no los afecta (son
+        # promedios nacionales de rutas, no de plantas PetroPerú).
+        if not proveedores_df.empty:
+            meses = pd.DatetimeIndex(sorted(df_mensual["mes"].unique()))
+            prov_mensual = serie_mensual_proveedores(proveedores_df, meses)
+
+            for proveedor in ["HECARO", "LMG", "QOLPARO"]:
+                d = prov_mensual[prov_mensual["proveedor"] == proveedor].sort_values("mes")
+                if d.empty:
+                    continue
+                fig_barras.add_trace(go.Scatter(
+                    x=d["mes"],
+                    y=d["promedio_sol_galon"],
+                    mode="lines+markers+text",
+                    name=f"{proveedor} — S/gal implícito",
+                    line=dict(
+                        color=COLORES_PROVEEDOR[proveedor],
+                        width=2.5,
+                        shape="hv",  # escalón: evita interpolar tarifas entre períodos
+                    ),
+                    marker=dict(size=7),
+                    text=d["promedio_sol_galon"].map(lambda v: f"{v:.1f}"),
+                    textposition="top center",
+                    hovertemplate=(
+                        "%{x|%b %Y}<br>" + proveedor + ": S/%{y:.2f}/gal implícito<extra></extra>"
+                    ),
+                ))
+
         fig_barras.update_xaxes(tickformat="%b %Y", dtick="M1", tickangle=-45)
         fig_barras.update_layout(height=480)
         st.plotly_chart(fig_barras, use_container_width=True)
+        if not proveedores_df.empty:
+            st.caption(
+                "Barras: precio promedio PetroPerú | Líneas: benchmark implícito "
+                "promedio de tarifas de transporte. Los benchmarks de proveedor son "
+                "promedios nacionales de rutas y no cambian con el filtro de plantas."
+            )
 
     st.subheader("Último precio por planta")
     ultimo_por_planta = (
@@ -184,7 +243,43 @@ else:
         )
         fig_comparativo.update_traces(textposition="inside")
         fig_comparativo.update_layout(xaxis_tickangle=-45)
+
+        # Benchmarks de proveedor: 3 líneas horizontales con el promedio
+        # vigente MÁS RECIENTE (histórico completo, no el rango de fechas
+        # del sidebar — mismo criterio que "valor actual" arriba). No se
+        # intenta mapear ruta->planta: son promedios nacionales de rutas,
+        # una granularidad distinta a la de las plantas PetroPerú.
+        if not proveedores_df.empty:
+            fecha_actual = df["fecha_vigencia"].max()
+            prom_actual = promedio_proveedor_en_fecha(proveedores_df, fecha_actual)
+            x_vals = fig_comparativo.data[0].x
+
+            for _, r in prom_actual.iterrows():
+                proveedor = r["proveedor"]
+                valor = float(r["promedio_sol_galon"])
+                fig_comparativo.add_trace(go.Scatter(
+                    x=x_vals,
+                    y=[valor] * len(x_vals),
+                    mode="lines",
+                    name=f"{proveedor} — S/{valor:.1f}/gal implícito",
+                    line=dict(
+                        color=COLORES_PROVEEDOR.get(proveedor),
+                        width=2,
+                        dash="dash",
+                    ),
+                    hovertemplate=f"{proveedor}<br>S/{valor:.2f}/gal implícito<extra></extra>",
+                ))
+
         st.plotly_chart(fig_comparativo, use_container_width=True)
+
+        if not proveedores_df.empty:
+            with st.expander("Nota metodológica — benchmarks de proveedor"):
+                st.markdown(
+                    "**Benchmark proveedores:** los valores de HECARO, LMG y QOLPARO "
+                    "representan S/gal implícito estimado a partir de tarifas logísticas "
+                    "y no equivalen al precio de compra de combustible. Se muestran como "
+                    "referencia comparativa frente al precio oficial PetroPerú."
+                )
 
 # ── Tabla cruda (opcional) ────────────────────────────────────────
 with st.expander("Ver datos crudos"):
