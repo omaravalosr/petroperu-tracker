@@ -15,18 +15,23 @@ PetroPerú, nunca mezclado en el mismo dataset (granularidades distintas:
 PetroPerú es planta/lista/fecha, proveedores es ruta/proveedor/vigencia).
 
 METODOLOGÍA DE CÁLCULO DEL CSV (trazabilidad — no se recalcula acá, se
-documenta para referencia; versión DEFINITIVA, ver
-proveedores_sgal_rendimientos_reales.csv):
+documenta para referencia):
   - KM_FINAL = KM_IDA × 2 (ida y vuelta) × 1.15 (factor operativo).
   - Si la ruta no se pudo reconstruir completa en el levantamiento de
     kilometraje: KM_FINAL = KM_TOTAL_ANTERIOR × 1.15 (sin duplicar el
     factor de vuelta, porque el KM anterior ya era total ida+vuelta).
   - GALONES_CONSUMIDOS = KM_FINAL / RENDIMIENTO_DEL_PROVEEDOR — cada
     proveedor tiene su propio rendimiento real de combustible (ya NO se
-    usa un rendimiento genérico único de 9.6 km/gal para los tres):
-      HECARO:  7.87 km/gal
-      LMG:     7.83 km/gal
-      QOLPARO: 8.25 km/gal
+    usa un rendimiento genérico único de 9.6 km/gal para los tres).
+    Rendimiento vigente al 2026-09-09:
+      HECARO:  8.31 km/gal
+      LMG:     7.73 km/gal
+      QOLPARO: 8.19 km/gal
+    Como KM_FINAL, tarifa y % combustible no cambian entre actualizaciones
+    de rendimiento, `sol_galon` es directamente proporcional al
+    rendimiento — una actualización de rendimiento reescala cada fila por
+    (rendimiento_nuevo / rendimiento_anterior), no requiere volver a medir
+    kilometrajes ni tarifas.
   - Componente combustible = Tarifa × % combustible del proveedor:
       HECARO: variable 50%-70% según ruta (metodología logística externa).
       LMG: 52% fijo.

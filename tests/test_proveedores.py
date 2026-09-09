@@ -16,22 +16,22 @@ def proveedores_df():
 
 
 def test_vigencia_marzo_vs_abril(proveedores_df):
-    # Valores recalculados a partir de proveedores_sgal_rendimientos_reales.csv
-    # (versión DEFINITIVA: rendimiento real por proveedor — HECARO 7.87,
-    # LMG 7.83, QOLPARO 8.25 km/gal — ya NO 9.6 genérico para los tres).
+    # Rendimientos vigentes (2026-09-09): HECARO 8.31, LMG 7.73,
+    # QOLPARO 8.19 km/gal. Cada actualización de rendimiento reescala
+    # sol_galon proporcionalmente (KM, tarifa y % combustible no cambian).
     mar = promedio_proveedor_en_fecha(proveedores_df, "2026-03-31")
     abr = promedio_proveedor_en_fecha(proveedores_df, "2026-04-30")
 
     mar = mar.set_index("proveedor")["promedio_sol_galon"]
     abr = abr.set_index("proveedor")["promedio_sol_galon"]
 
-    assert round(mar["HECARO"], 2) == 16.77
-    assert round(mar["LMG"], 2) == 14.65
-    assert round(mar["QOLPARO"], 2) == 14.80
+    assert round(mar["HECARO"], 2) == 17.71
+    assert round(mar["LMG"], 2) == 14.46
+    assert round(mar["QOLPARO"], 2) == 14.69
 
-    assert round(abr["HECARO"], 2) == 20.67
-    assert round(abr["LMG"], 2) == 19.00
-    assert round(abr["QOLPARO"], 2) == 18.30
+    assert round(abr["HECARO"], 2) == 21.83
+    assert round(abr["LMG"], 2) == 18.75
+    assert round(abr["QOLPARO"], 2) == 18.17
 
 
 def test_tarifa_2025_aplica_enero_a_marzo(proveedores_df):

@@ -236,9 +236,18 @@ anterior — mismo esquema, mismas 30 rutas, solo cambia cómo se calculó
 2. `proveedores_sgal_actualizado_v2.csv` — kilometraje recalculado desde
    Hub Lurín, rendimiento genérico único de 9.6 km/gal para los tres
    proveedores. *Superada.*
-3. `proveedores_sgal_rendimientos_reales.csv` (**vigente**) — mismo
-   kilometraje que la v2, pero con el rendimiento real de cada proveedor
-   (HECARO 7.87, LMG 7.83, QOLPARO 8.25 km/gal) en vez del genérico de 9.6.
+3. `proveedores_sgal_rendimientos_reales.csv` — mismo kilometraje que la
+   v2, pero con el rendimiento real de cada proveedor en vez del genérico
+   de 9.6 km/gal.
+4. **Actualización de rendimiento (2026-09-09, vigente)** — mismo archivo
+   y metodología que el punto 3 (mismo KM, tarifa y % combustible por
+   ruta), solo se actualizaron los rendimientos: **HECARO 8.31, LMG 7.73,
+   QOLPARO 8.19 km/gal**. Como `sol_galon` es directamente proporcional al
+   rendimiento, cada fila se reescaló por
+   `rendimiento_nuevo / rendimiento_anterior` — no fue necesario volver a
+   levantar kilometrajes ni tarifas. Verificado contra el cálculo
+   independiente (Tarifa × %combustible ÷ (KM_FINAL / rendimiento nuevo))
+   usando el kilometraje y tarifas de `Calculo_SGal_Rendimientos_Actualizados.xlsx`.
 
 ### Esquema de `data/proveedores_sgal.csv`
 
@@ -266,10 +275,11 @@ metodología:
   por eso acá no se multiplica por 2 de nuevo).
 - `GALONES_CONSUMIDOS = KM_FINAL / RENDIMIENTO_DEL_PROVEEDOR` — **cada
   proveedor tiene su propio rendimiento real** (ya NO un rendimiento
-  genérico único de 9.6 km/gal para los tres, como en la versión anterior):
-  - **HECARO**: 7.87 km/gal
-  - **LMG**: 7.83 km/gal
-  - **QOLPARO**: 8.25 km/gal
+  genérico único de 9.6 km/gal para los tres). Rendimiento vigente al
+  2026-09-09:
+  - **HECARO**: 8.31 km/gal
+  - **LMG**: 7.73 km/gal
+  - **QOLPARO**: 8.19 km/gal
 - Componente de combustible = `Tarifa × % combustible`:
   - **HECARO**: variable, 50%-70% según la ruta (metodología logística externa).
   - **LMG**: 52% fijo.
@@ -331,10 +341,10 @@ y solo se combinan visualmente (líneas sobre las mismas gráficas).
 ### Smoke test / tests automatizados
 
 `tests/test_proveedores.py` (correr con `pytest tests/test_proveedores.py`)
-valida, contra el CSV vigente (`proveedores_sgal_rendimientos_reales.csv`,
-versión **definitiva** con rendimiento real por proveedor):
-1. El promedio Ene-Mar 2026 es HECARO 16.77, LMG 14.65, QOLPARO 14.80.
-2. El promedio Abr-en-adelante es HECARO 20.67, LMG 19.00, QOLPARO 18.30.
+valida, contra el CSV vigente (rendimiento actualizado al 2026-09-09:
+HECARO 8.31, LMG 7.73, QOLPARO 8.19 km/gal):
+1. El promedio Ene-Mar 2026 es HECARO 17.71, LMG 14.46, QOLPARO 14.69.
+2. El promedio Abr-en-adelante es HECARO 21.83, LMG 18.75, QOLPARO 18.17.
 3. Enero, febrero y marzo dan exactamente el mismo promedio (misma tarifa vigente).
 4. Abril y septiembre dan exactamente el mismo promedio (ambos usan `ACTUAL`).
 5. Ninguna fila tiene `sol_galon == 0` (una ruta sin tarifa queda ausente, no en cero — un cero sesgaría el promedio nacional).
@@ -357,6 +367,15 @@ respecto a sus propias columnas de Tarifa/Galones (bug de fórmula del
 Excel, se repite en esta versión) — el CSV usado por el dashboard es el
 valor correcto, verificado contra el cálculo intermedio, no contra esa
 columna final del Excel.
+
+**Nota de validación (2026-09-09, actualización de rendimiento):** se
+reescaló cada fila de `data/proveedores_sgal.csv` por
+`rendimiento_nuevo / rendimiento_anterior` (HECARO ×1.0559, LMG ×0.9872,
+QOLPARO ×0.9927) sin tocar KM, tarifa ni % combustible. Verificado
+independientemente recalculando `Tarifa × %combustible ÷ (Km_final /
+rendimiento_nuevo)` fila por fila con el kilometraje y tarifas de
+`Calculo_SGal_Rendimientos_Actualizados.xlsx`: coincide con el CSV
+reescalado en las 141 filas (diferencia máxima 0.01, por redondeo).
 
 También se verificó matemáticamente que, ruta por ruta, el nuevo CSV es
 exactamente el anterior (`_v2`, calculado con 9.6 km/gal genérico) escalado
