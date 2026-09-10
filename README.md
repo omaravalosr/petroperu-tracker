@@ -248,6 +248,13 @@ anterior — mismo esquema, mismas 30 rutas, solo cambia cómo se calculó
    levantar kilometrajes ni tarifas. Verificado contra el cálculo
    independiente (Tarifa × %combustible ÷ (KM_FINAL / rendimiento nuevo))
    usando el kilometraje y tarifas de `Calculo_SGal_Rendimientos_Actualizados.xlsx`.
+5. **HECARO a 50% de combustible fijo (2026-09-10, vigente)** — antes
+   HECARO usaba un % variable por ruta (50%-70%, entre las 27 rutas
+   promediaba 60%). Se recalculó `sol_galon` de HECARO con
+   `Tarifa_HECARO × 0.50` en vez del % variable — sin tocar KM, tarifa,
+   rendimiento, ni los valores de LMG/QOLPARO. Bajó el promedio de HECARO
+   ~16% (mismo orden de magnitud que baja el %: 60%→50% es una caída del
+   17%, y la fórmula es lineal en el % de combustible).
 
 ### Esquema de `data/proveedores_sgal.csv`
 
@@ -281,7 +288,7 @@ metodología:
   - **LMG**: 7.73 km/gal
   - **QOLPARO**: 8.19 km/gal
 - Componente de combustible = `Tarifa × % combustible`:
-  - **HECARO**: variable, 50%-70% según la ruta (metodología logística externa).
+  - **HECARO**: 50% fijo (desde 2026-09-10; antes variable 50%-70% según ruta).
   - **LMG**: 52% fijo.
   - **QOLPARO**: 50% fijo.
 - `S/GALÓN_IMPLÍCITO = Componente_combustible / GALONES_CONSUMIDOS`
@@ -343,8 +350,8 @@ y solo se combinan visualmente (líneas sobre las mismas gráficas).
 `tests/test_proveedores.py` (correr con `pytest tests/test_proveedores.py`)
 valida, contra el CSV vigente (rendimiento actualizado al 2026-09-09:
 HECARO 8.31, LMG 7.73, QOLPARO 8.19 km/gal):
-1. El promedio Ene-Mar 2026 es HECARO 17.71, LMG 14.46, QOLPARO 14.69.
-2. El promedio Abr-en-adelante es HECARO 21.83, LMG 18.75, QOLPARO 18.17.
+1. El promedio Ene-Mar 2026 es HECARO 14.90, LMG 14.46, QOLPARO 14.69.
+2. El promedio Abr-en-adelante es HECARO 18.59, LMG 18.75, QOLPARO 18.17.
 3. Enero, febrero y marzo dan exactamente el mismo promedio (misma tarifa vigente).
 4. Abril y septiembre dan exactamente el mismo promedio (ambos usan `ACTUAL`).
 5. Ninguna fila tiene `sol_galon == 0` (una ruta sin tarifa queda ausente, no en cero — un cero sesgaría el promedio nacional).

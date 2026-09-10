@@ -33,7 +33,8 @@ documenta para referencia):
     (rendimiento_nuevo / rendimiento_anterior), no requiere volver a medir
     kilometrajes ni tarifas.
   - Componente combustible = Tarifa × % combustible del proveedor:
-      HECARO: variable 50%-70% según ruta (metodología logística externa).
+      HECARO: 50% fijo (2026-09-10 en adelante; antes era variable 50%-70%
+      según ruta, metodología logística externa — se simplificó a plano).
       LMG: 52% fijo.
       QOLPARO: 50% fijo.
   - S/GALÓN_IMPLÍCITO = Componente_combustible / GALONES_CONSUMIDOS
